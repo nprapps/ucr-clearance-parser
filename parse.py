@@ -27,8 +27,9 @@ def parse(file_path):
 
 
 def process_line(line):
+    line = re.sub(' +', ' ', line).strip()
+
     logger.info(line)
-    return line
 
 
 if __name__ == '__main__':
