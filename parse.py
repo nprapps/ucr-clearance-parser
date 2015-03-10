@@ -1,13 +1,14 @@
 #!/usr/bin/env python
 
 import logging
+import re
 import sys
 
 SECTION_BREAK = 'CLEARANCE RATE DATA FOR INDEX OFFENSES'
 END_BREAK = '  READ'
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('ucr-parser')
 
 def parse(file_path):
     with open(file_path) as f:
