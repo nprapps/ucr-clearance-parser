@@ -37,8 +37,13 @@ def parse(file_path):
                 row['lea_code'] = line_parts[0]
                 row['lea_name'] = line_parts[1]
 
+                if row['lea_code'][0].isdigit():
+                    row['state'] = row['lea_code'][1:3]
+                else:
+                    row['state'] = row['lea_code'][0:2]
+
             if i == 1:
-                row['_mos'] = locale.atoi(line_parts[0])
+                row['mos'] = locale.atoi(line_parts[0])
                 row['violent_count'] = locale.atoi(line_parts[3])
                 row['property_count'] = locale.atoi(line_parts[4])
                 row['murder_count'] = locale.atoi(line_parts[5])
