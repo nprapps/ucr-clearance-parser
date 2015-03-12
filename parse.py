@@ -8,14 +8,14 @@ import sys
 
 SECTION_BREAK = 'CLEARANCE RATE DATA FOR INDEX OFFENSES'
 END_BREAK = '  READ'
-FIELDNAMES = ['lea_code', 'lea_name', 'population', 'agg_assault_cleared', 'agg_assault_cleared_pct', 'agg_assault_count', 'arson_cleared', 'arson_cleared_pct', 'arson_count', 'burglary_cleared', 'burglary_cleared_pct', 'burglary_count', 'forcible_rape_cleared', 'forcible_rape_cleared_pct', 'forcible_rape_count', 'larceny_theft_cleared', 'larceny_theft_cleared_pct', 'larceny_theft_count', 'murder_cleared', 'murder_cleared_pct', 'murder_count', 'mvt_cleared', 'mvt_cleared_pct', 'mvt_count', 'property_cleared', 'property_cleared_pct', 'property_count', 'robbery_cleared', 'robbery_cleared_pct', 'robbery_count', 'violent_cleared', 'violent_cleared_pct', 'violent_count', '_mos']
+FIELDNAMES = ['state', 'lea_code', 'lea_name', 'population', 'mos', 'agg_assault_cleared', 'agg_assault_cleared_pct', 'agg_assault_count', 'arson_cleared', 'arson_cleared_pct', 'arson_count', 'burglary_cleared', 'burglary_cleared_pct', 'burglary_count', 'forcible_rape_cleared', 'forcible_rape_cleared_pct', 'forcible_rape_count', 'larceny_theft_cleared', 'larceny_theft_cleared_pct', 'larceny_theft_count', 'murder_cleared', 'murder_cleared_pct', 'murder_count', 'mvt_cleared', 'mvt_cleared_pct', 'mvt_count', 'property_cleared', 'property_cleared_pct', 'property_count', 'robbery_cleared', 'robbery_cleared_pct', 'robbery_count', 'violent_cleared', 'violent_cleared_pct', 'violent_count']
 
 locale.setlocale(locale.LC_ALL, 'en_US')
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('ucr-parser')
 
 def parse(file_path):
-    output = []
+    output = {}
     f = open(file_path)
 
     line = _skip_to_start(f)
@@ -82,15 +82,22 @@ def parse(file_path):
 
             line = f.readline()
 
-        output.append(row)
+        if row['state'] not in output.keys():
+            output[row['state']] = []
+
+        output[row['state']].append(row)
 
 
 def _skip_to_start(f):
+    """
+    Skip to start of data
+    """
     while True:
         line = f.readline()
         if SECTION_BREAK in line:
             break
     return line
+
 
 def _skip_section_break(f):
     """
@@ -101,14 +108,17 @@ def _skip_section_break(f):
     f.readline()
     return f.readline()
 
+
 def _split_line(line):
     return re.sub(' +', ' ', line).strip().split(' ')
 
 
 if __name__ == '__main__':
     output = parse(sys.argv[1])
-    with open(sys.argv[2], 'w') as outfile:
-        writer = csv.DictWriter(outfile, fieldnames=FIELDNAMES)
-        writer.writeheader()
-        for row in output:
-            writer.writerow(row)
+    for state, rows in output.items():
+        filename = 'data/%s-%s-clearance.csv' % (state, sys.argv[2])
+        with open(filename, 'w') as outfile:
+            writer = csv.DictWriter(outfile, fieldnames=FIELDNAMES)
+            writer.writeheader()
+            for row in rows:
+                writer.writerow(row)
