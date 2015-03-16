@@ -1,5 +1,5 @@
 *.py[co]
 *.sw[op]
 
-output/*.csv
+output/*
 .DS_store
