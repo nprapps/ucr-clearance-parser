@@ -61,7 +61,7 @@ def parse(file_path, year):
                 row['lea_code'] = line_parts[0]
                 if not row['lea_code'].startswith('0'):
                     row['lea_code'] = '0%s' % row['lea_code']
-                row['lea_name'] = line_parts[1]
+                row['lea_name'] = ' '.join(line_parts[1:])
 
                 row['state'] = parse_state(row['lea_code'])
 
