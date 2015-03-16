@@ -12,6 +12,12 @@ SECTION_BREAK = 'CLEARANCE RATE DATA FOR INDEX OFFENSES'
 END_BREAK = '  READ'
 FIELDNAMES = ['state', 'lea_code', 'lea_name', 'population', 'mos', 'agg_assault_cleared', 'agg_assault_cleared_pct', 'agg_assault_count', 'arson_cleared', 'arson_cleared_pct', 'arson_count', 'burglary_cleared', 'burglary_cleared_pct', 'burglary_count', 'forcible_rape_cleared', 'forcible_rape_cleared_pct', 'forcible_rape_count', 'larceny_theft_cleared', 'larceny_theft_cleared_pct', 'larceny_theft_count', 'murder_cleared', 'murder_cleared_pct', 'murder_count', 'mvt_cleared', 'mvt_cleared_pct', 'mvt_count', 'property_cleared', 'property_cleared_pct', 'property_count', 'robbery_cleared', 'robbery_cleared_pct', 'robbery_count', 'violent_cleared', 'violent_cleared_pct', 'violent_count']
 
+IMPORT_FILES = [
+    ('2011', '2011-clearance-rates.txt'),
+    ('2012', '2012-clearance-rates.txt'),
+    ('2013', '2013-clearance-rates.txt'),
+]
+
 locale.setlocale(locale.LC_ALL, 'en_US')
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('ucr-parser')
@@ -145,8 +151,10 @@ def write_csv(data, filename):
 
 
 if __name__ == '__main__':
-    data = parse(sys.argv[1])
-    write_csv(data, 'data/%s-all_states-clearance.csv' % sys.argv[2])
-    for state, state_data in groupby(data, lambda x: x['state']):
-        filename = 'data/%s-%s-clearance.csv' % (state, sys.argv[2])
-        write_csv(state_data, filename)
+    for year, file in IMPORT_FILES:
+        data_file = 'data/%s' % file
+        data = parse(data_file)
+        write_csv(data, 'output/%s-clearance.csv' % year)
+        for state, state_data in groupby(data, lambda x: x['state']):
+            filename = 'output/%s-%s-clearance.csv' % (state, year)
+            write_csv(state_data, filename)
