@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import csv
+import json
 import locale
 import logging
 import re
@@ -10,7 +11,20 @@ from itertools import groupby
 
 SECTION_BREAK = 'CLEARANCE RATE DATA FOR INDEX OFFENSES'
 END_BREAK = '  READ'
-FIELDNAMES = ['state', 'lea_code', 'lea_name', 'population', 'mos', 'agg_assault_cleared', 'agg_assault_cleared_pct', 'agg_assault_count', 'arson_cleared', 'arson_cleared_pct', 'arson_count', 'burglary_cleared', 'burglary_cleared_pct', 'burglary_count', 'forcible_rape_cleared', 'forcible_rape_cleared_pct', 'forcible_rape_count', 'larceny_theft_cleared', 'larceny_theft_cleared_pct', 'larceny_theft_count', 'murder_cleared', 'murder_cleared_pct', 'murder_count', 'mvt_cleared', 'mvt_cleared_pct', 'mvt_count', 'property_cleared', 'property_cleared_pct', 'property_count', 'robbery_cleared', 'robbery_cleared_pct', 'robbery_count', 'violent_cleared', 'violent_cleared_pct', 'violent_count']
+FIELDNAMES = ['year', 'state', 'lea_code', 'lea_name', 'population', 'mos', 'agg_assault_cleared', 'agg_assault_cleared_pct', 'agg_assault_count', 'arson_cleared', 'arson_cleared_pct', 'arson_count', 'burglary_cleared', 'burglary_cleared_pct', 'burglary_count', 'forcible_rape_cleared', 'forcible_rape_cleared_pct', 'forcible_rape_count', 'larceny_theft_cleared', 'larceny_theft_cleared_pct', 'larceny_theft_count', 'murder_cleared', 'murder_cleared_pct', 'murder_count', 'mvt_cleared', 'mvt_cleared_pct', 'mvt_count', 'property_cleared', 'property_cleared_pct', 'property_count', 'robbery_cleared', 'robbery_cleared_pct', 'robbery_count', 'violent_cleared', 'violent_cleared_pct', 'violent_count']
+
+CRIME_TYPES = [
+    'violent',
+    'property',
+    'murder',
+    'forcible_rape',
+    'robbery',
+    'agg_assault',
+    'burglary',
+    'larceny_theft',
+    'mvt',
+    'arson',
+]
 
 IMPORT_FILES = [
     ('2011', '2011-clearance-rates.txt'),
@@ -22,14 +36,16 @@ locale.setlocale(locale.LC_ALL, 'en_US')
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('ucr-parser')
 
-def parse(file_path):
+def parse(file_path, year):
     output = []
     f = open(file_path)
 
     line = skip_to_start(f)
 
     while True:
-        row = {}
+        row = {
+            'year': year
+        }
         for i in range(0, 4):
 
             if SECTION_BREAK in line:
@@ -151,10 +167,47 @@ def write_csv(data, filename):
 
 
 if __name__ == '__main__':
+    all_data = []
     for year, file in IMPORT_FILES:
         data_file = 'data/%s' % file
-        data = parse(data_file)
+        data = parse(data_file, year)
+        all_data = all_data + data
         write_csv(data, 'output/%s-clearance.csv' % year)
         for state, state_data in groupby(data, lambda x: x['state']):
             filename = 'output/%s-%s-clearance.csv' % (state, year)
             write_csv(state_data, filename)
+
+    for lea_code, lea_data in groupby(all_data, lambda x: x['lea_code']):
+        skip_lea = False
+        #import ipdb; ipdb.set_trace();
+        output = {
+            'lea_code': lea_code,
+            'crimes': {}
+        }
+        for row in lea_data:
+            year = row['year']
+
+            if row['mos'] == 0:
+                skip_lea = True
+
+            if not output.get('lea_name'):
+                output['lea_name'] = row['lea_name']
+                lea_name = row['lea_name']
+
+            if not output.get('population'):
+                output['population'] = row['population']
+
+            for field in CRIME_TYPES:
+                if not output['crimes'].get(field):
+                    output['crimes'][field] = {}
+                output['crimes'][field][year] = {}
+                for measure in ['count', 'cleared', 'cleared_pct']:
+                    output['crimes'][field][year][measure] = row['%s_%s' % (field, measure)]
+
+        if skip_lea:
+            continue
+
+        with open('output/json/%s.json' % lea_code, 'w') as outfile:
+            json.dump(output, outfile)
+
+        print '"%s","%s"' % (lea_code, lea_name)
