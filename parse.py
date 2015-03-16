@@ -59,6 +59,8 @@ def parse(file_path, year):
 
             if i == 0:
                 row['lea_code'] = line_parts[0]
+                if not row['lea_code'].startswith('0'):
+                    row['lea_code'] = '0%s' % row['lea_code']
                 row['lea_name'] = line_parts[1]
 
                 row['state'] = parse_state(row['lea_code'])
@@ -177,18 +179,17 @@ if __name__ == '__main__':
             filename = 'output/%s-%s-clearance.csv' % (state, year)
             write_csv(state_data, filename)
 
+    all_data = sorted(all_data, key=lambda x: x['lea_code'])
+
+    all_agencies = []
+
     for lea_code, lea_data in groupby(all_data, lambda x: x['lea_code']):
-        skip_lea = False
-        #import ipdb; ipdb.set_trace();
         output = {
             'lea_code': lea_code,
             'crimes': {}
         }
         for row in lea_data:
             year = row['year']
-
-            if row['mos'] == 0:
-                skip_lea = True
 
             if not output.get('lea_name'):
                 output['lea_name'] = row['lea_name']
@@ -204,10 +205,11 @@ if __name__ == '__main__':
                 for measure in ['count', 'cleared', 'cleared_pct']:
                     output['crimes'][field][year][measure] = row['%s_%s' % (field, measure)]
 
-        if skip_lea:
-            continue
-
         with open('output/json/%s.json' % lea_code, 'w') as outfile:
             json.dump(output, outfile)
 
-        print '"%s","%s"' % (lea_code, lea_name)
+        all_agencies.append((lea_code, lea_name))
+
+    with open('output/agency_names.csv', 'w') as outfile:
+        writer = csv.writer(outfile)
+        writer.writerows(all_agencies)
