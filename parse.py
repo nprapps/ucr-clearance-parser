@@ -59,8 +59,8 @@ def parse(file_path, year):
 
             if i == 0:
                 row['lea_code'] = line_parts[0]
-                if not row['lea_code'].startswith('0'):
-                    row['lea_code'] = '0%s' % row['lea_code']
+                if row['lea_code'].startswith('0'):
+                    row['lea_code'] = row['lea_code'][1:]
                 row['lea_name'] = ' '.join(line_parts[1:])
 
                 row['state'] = parse_state(row['lea_code'])
@@ -152,19 +152,30 @@ def parse_state(value):
     """
     Parse state from LEA code.
     """
-    if value[0].isdigit():
-        return value[1:3]
-    else:
-        return value[0:2]
+    return value[0:2]
 
 
-def write_json(data):
+def get_agencies():
+    agencies = {}
+    with open('data/agency-crosswalk.csv') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            agencies[row['ORI7']] = row
+
+    return agencies
+
+def write_json(data, agencies):
     """
     Write json data
     """
     all_agencies = []
 
     for lea_code, lea_data in groupby(data, lambda x: x['lea_code']):
+        lea_info = agencies.get(lea_code)
+        if not lea_info:
+            logger.info('Skipping %s' % lea_code)
+            continue
+
         output = {
             'lea_code': lea_code,
             'crimes': {}
@@ -172,9 +183,8 @@ def write_json(data):
         for row in lea_data:
             year = row['year']
 
-            if not output.get('lea_name'):
-                output['lea_name'] = row['lea_name']
-                lea_name = row['lea_name']
+            #if not output.get('lea_name'):
+            output['lea_name'] = lea_info['AGENCY']
 
             if not output.get('population'):
                 output['population'] = row['population']
@@ -190,7 +200,7 @@ def write_json(data):
             logger.debug('Writing output/json/%s.json' % lea_code)
             json.dump(output, outfile)
 
-        all_agencies.append((lea_code, lea_name))
+        all_agencies.append((lea_code, lea_info['AGENCY']))
 
     logger.info('Writing output/agency_names.csv')
     with open('output/agency_names.csv', 'w') as outfile:
@@ -224,6 +234,7 @@ if __name__ == '__main__':
             write_csv(state_data, filename)
 
     all_data = sorted(all_data, key=lambda x: x['lea_code'])
+    agencies = get_agencies()
 
     logger.info('Writing JSON data')
-    write_json(all_data)
+    write_json(all_data, agencies)
