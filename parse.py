@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import csv
+import dataset
 import json
 import locale
 import logging
@@ -35,6 +36,8 @@ IMPORT_FILES = [
 locale.setlocale(locale.LC_ALL, 'en_US')
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('ucr-parser')
+
+db = dataset.connect('postgresql:///ucr_clearance')
 
 def parse(file_path, year):
     output = []
@@ -219,6 +222,37 @@ def write_csv(data, filename):
         for row in data:
             writer.writerow(row)
 
+def write_rates_to_db(data):
+    """
+    Write clearance rate data to db
+    """
+    logger.info('writing rates')
+    table = db['clearance_rates']
+    table.insert_many(data)
+
+
+def write_agencies_db(agencies):
+    """
+    Write agency data to db
+    """
+    logger.info('writing agencies')
+    table = db['agencies']
+
+    process_agencies = []
+    for agency in agencies.values():
+        if not agency.get('ORI7'):
+            continue
+
+        processed_agency = {}
+        for key, value in agency.items():
+            # Skip the empty column whose meaning is not known
+            if key != '':
+                processed_agency[key.lower()] = value
+
+        process_agencies.append(processed_agency)
+
+    table.insert_many(process_agencies)
+
 
 if __name__ == '__main__':
     all_data = []
@@ -228,13 +262,16 @@ if __name__ == '__main__':
         data_file = 'data/%s' % file
         data = parse(data_file, year)
         all_data = all_data + data
-        write_csv(data, 'output/%s-clearance.csv' % year)
-        for state, state_data in groupby(data, lambda x: x['state']):
-            filename = 'output/%s-%s-clearance.csv' % (state, year)
-            write_csv(state_data, filename)
+        #write_csv(data, 'output/%s-clearance.csv' % year)
+        #for state, state_data in groupby(data, lambda x: x['state']):
+            #filename = 'output/%s-%s-clearance.csv' % (state, year)
+            #write_csv(state_data, filename)
 
     all_data = sorted(all_data, key=lambda x: x['lea_code'])
     agencies = get_agencies()
 
-    logger.info('Writing JSON data')
-    write_json(all_data, agencies)
+    write_agencies_db(agencies)
+    write_rates_to_db(all_data)
+
+    #logger.info('Writing JSON data')
+    #write_json(all_data, agencies)
