@@ -6,6 +6,7 @@ import locale
 import logging
 import re
 import sys
+import dataset
 
 from itertools import groupby
 
@@ -181,35 +182,40 @@ if __name__ == '__main__':
 
     all_data = sorted(all_data, key=lambda x: x['lea_code'])
 
-    all_agencies = []
+    db = dataset.connect('sqlite:///output/test.db')
+    table = db['rates']
+    for row in all_data:
+        table.insert(row)
 
-    for lea_code, lea_data in groupby(all_data, lambda x: x['lea_code']):
-        output = {
-            'lea_code': lea_code,
-            'crimes': {}
-        }
-        for row in lea_data:
-            year = row['year']
+    #all_agencies = []
 
-            if not output.get('lea_name'):
-                output['lea_name'] = row['lea_name']
-                lea_name = row['lea_name']
+    #for lea_code, lea_data in groupby(all_data, lambda x: x['lea_code']):
+        #output = {
+            #'lea_code': lea_code,
+            #'crimes': {}
+        #}
+        #for row in lea_data:
+            #year = row['year']
 
-            if not output.get('population'):
-                output['population'] = row['population']
+            #if not output.get('lea_name'):
+                #output['lea_name'] = row['lea_name']
+                #lea_name = row['lea_name']
 
-            for field in CRIME_TYPES:
-                if not output['crimes'].get(field):
-                    output['crimes'][field] = {}
-                output['crimes'][field][year] = {}
-                for measure in ['count', 'cleared', 'cleared_pct']:
-                    output['crimes'][field][year][measure] = row['%s_%s' % (field, measure)]
+            #if not output.get('population'):
+                #output['population'] = row['population']
 
-        with open('output/json/%s.json' % lea_code, 'w') as outfile:
-            json.dump(output, outfile)
+            #for field in CRIME_TYPES:
+                #if not output['crimes'].get(field):
+                    #output['crimes'][field] = {}
+                #output['crimes'][field][year] = {}
+                #for measure in ['count', 'cleared', 'cleared_pct']:
+                    #output['crimes'][field][year][measure] = row['%s_%s' % (field, measure)]
 
-        all_agencies.append((lea_code, lea_name))
+        #with open('output/json/%s.json' % lea_code, 'w') as outfile:
+            #json.dump(output, outfile)
 
-    with open('output/agency_names.csv', 'w') as outfile:
-        writer = csv.writer(outfile)
-        writer.writerows(all_agencies)
+        #all_agencies.append((lea_code, lea_name))
+
+    #with open('output/agency_names.csv', 'w') as outfile:
+        #writer = csv.writer(outfile)
+        #writer.writerows(all_agencies)
