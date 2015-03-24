@@ -105,6 +105,7 @@ def parse(file_path, year):
 
             line = f.readline()
 
+        logger.debug('Writing row for %s (%s), %s' % (row['lea_code'], row['lea_name'], year))
         output.append(row)
 
 
@@ -157,33 +158,13 @@ def parse_state(value):
         return value[0:2]
 
 
-def write_csv(data, filename):
+def write_json(data):
     """
-    Write a CSV from a list of dicts
+    Write json data
     """
-    with open(filename, 'w') as outfile:
-        writer = csv.DictWriter(outfile, fieldnames=FIELDNAMES)
-        writer.writeheader()
-        for row in data:
-            writer.writerow(row)
-
-
-if __name__ == '__main__':
-    all_data = []
-    for year, file in IMPORT_FILES:
-        data_file = 'data/%s' % file
-        data = parse(data_file, year)
-        all_data = all_data + data
-        write_csv(data, 'output/%s-clearance.csv' % year)
-        for state, state_data in groupby(data, lambda x: x['state']):
-            filename = 'output/%s-%s-clearance.csv' % (state, year)
-            write_csv(state_data, filename)
-
-    all_data = sorted(all_data, key=lambda x: x['lea_code'])
-
     all_agencies = []
 
-    for lea_code, lea_data in groupby(all_data, lambda x: x['lea_code']):
+    for lea_code, lea_data in groupby(data, lambda x: x['lea_code']):
         output = {
             'lea_code': lea_code,
             'crimes': {}
@@ -206,10 +187,43 @@ if __name__ == '__main__':
                     output['crimes'][field][year][measure] = row['%s_%s' % (field, measure)]
 
         with open('output/json/%s.json' % lea_code, 'w') as outfile:
+            logger.debug('Writing output/json/%s.json' % lea_code)
             json.dump(output, outfile)
 
         all_agencies.append((lea_code, lea_name))
 
+    logger.info('Writing output/agency_names.csv')
     with open('output/agency_names.csv', 'w') as outfile:
         writer = csv.writer(outfile)
+        writer.writerow(['ori7', 'name'])
         writer.writerows(all_agencies)
+
+
+def write_csv(data, filename):
+    """
+    Write a CSV from a list of dicts
+    """
+    with open(filename, 'w') as outfile:
+        writer = csv.DictWriter(outfile, fieldnames=FIELDNAMES)
+        writer.writeheader()
+        for row in data:
+            writer.writerow(row)
+
+
+if __name__ == '__main__':
+    all_data = []
+
+    logger.info('Parsing data files')
+    for year, file in IMPORT_FILES:
+        data_file = 'data/%s' % file
+        data = parse(data_file, year)
+        all_data = all_data + data
+        write_csv(data, 'output/%s-clearance.csv' % year)
+        for state, state_data in groupby(data, lambda x: x['state']):
+            filename = 'output/%s-%s-clearance.csv' % (state, year)
+            write_csv(state_data, filename)
+
+    all_data = sorted(all_data, key=lambda x: x['lea_code'])
+
+    logger.info('Writing JSON data')
+    write_json(all_data)
