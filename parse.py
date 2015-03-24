@@ -262,10 +262,10 @@ if __name__ == '__main__':
         data_file = 'data/%s' % file
         data = parse(data_file, year)
         all_data = all_data + data
-        #write_csv(data, 'output/%s-clearance.csv' % year)
-        #for state, state_data in groupby(data, lambda x: x['state']):
-            #filename = 'output/%s-%s-clearance.csv' % (state, year)
-            #write_csv(state_data, filename)
+        write_csv(data, 'output/%s-clearance.csv' % year)
+        for state, state_data in groupby(data, lambda x: x['state']):
+            filename = 'output/%s-%s-clearance.csv' % (state, year)
+            write_csv(state_data, filename)
 
     all_data = sorted(all_data, key=lambda x: x['lea_code'])
     agencies = get_agencies()
@@ -273,5 +273,5 @@ if __name__ == '__main__':
     write_agencies_db(agencies)
     write_rates_to_db(all_data)
 
-    #logger.info('Writing JSON data')
-    #write_json(all_data, agencies)
+    logger.info('Writing JSON data')
+    write_json(all_data, agencies)
