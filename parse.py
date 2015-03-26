@@ -8,11 +8,12 @@ import logging
 import re
 import sys
 
+from collections import OrderedDict
 from itertools import groupby
 
 SECTION_BREAK = 'CLEARANCE RATE DATA FOR INDEX OFFENSES'
 END_BREAK = '  READ'
-FIELDNAMES = ['year', 'state', 'lea_code', 'lea_name', 'population', 'mos', 'agg_assault_cleared', 'agg_assault_cleared_pct', 'agg_assault_count', 'arson_cleared', 'arson_cleared_pct', 'arson_count', 'burglary_cleared', 'burglary_cleared_pct', 'burglary_count', 'forcible_rape_cleared', 'forcible_rape_cleared_pct', 'forcible_rape_count', 'larceny_theft_cleared', 'larceny_theft_cleared_pct', 'larceny_theft_count', 'murder_cleared', 'murder_cleared_pct', 'murder_count', 'mvt_cleared', 'mvt_cleared_pct', 'mvt_count', 'property_cleared', 'property_cleared_pct', 'property_count', 'robbery_cleared', 'robbery_cleared_pct', 'robbery_count', 'violent_cleared', 'violent_cleared_pct', 'violent_count']
+FIELDNAMES = ['year', 'state', 'ori7', 'lea_name', 'population', 'mos', 'agg_assault_cleared', 'agg_assault_cleared_pct', 'agg_assault_count', 'arson_cleared', 'arson_cleared_pct', 'arson_count', 'burglary_cleared', 'burglary_cleared_pct', 'burglary_count', 'forcible_rape_cleared', 'forcible_rape_cleared_pct', 'forcible_rape_count', 'larceny_theft_cleared', 'larceny_theft_cleared_pct', 'larceny_theft_count', 'murder_cleared', 'murder_cleared_pct', 'murder_count', 'mvt_cleared', 'mvt_cleared_pct', 'mvt_count', 'property_cleared', 'property_cleared_pct', 'property_count', 'robbery_cleared', 'robbery_cleared_pct', 'robbery_count', 'violent_cleared', 'violent_cleared_pct', 'violent_count']
 
 CRIME_TYPES = [
     'violent',
@@ -61,12 +62,12 @@ def parse(file_path, year):
             line_parts = split_line(line)
 
             if i == 0:
-                row['lea_code'] = line_parts[0]
-                if row['lea_code'].startswith('0'):
-                    row['lea_code'] = row['lea_code'][1:]
+                row['ori7'] = line_parts[0]
+                if row['ori7'].startswith('0'):
+                    row['ori7'] = row['ori7'][1:]
                 row['lea_name'] = ' '.join(line_parts[1:])
 
-                row['state'] = parse_state(row['lea_code'])
+                row['state'] = parse_state(row['ori7'])
 
             if i == 1:
                 row['mos'] = parse_int(line_parts[0])
@@ -108,7 +109,7 @@ def parse(file_path, year):
 
             line = f.readline()
 
-        logger.debug('Writing row for %s (%s), %s' % (row['lea_code'], row['lea_name'], year))
+        logger.debug('Writing row for %s (%s), %s' % (row['ori7'], row['lea_name'], year))
         output.append(row)
 
 
@@ -167,31 +168,44 @@ def get_agencies():
 
     return agencies
 
-def write_json(data, agencies):
+def write_clearance_json():
     """
     Write json data
     """
-    all_agencies = []
 
-    for lea_code, lea_data in groupby(data, lambda x: x['lea_code']):
-        lea_info = agencies.get(lea_code)
-        if not lea_info:
-            logger.info('Skipping %s' % lea_code)
-            continue
+    result = db.query("""select
+        a.ori7, a.agency, a.state, a.agentype,
+        c.year,
+        c.violent_count, c.violent_cleared, c.violent_cleared_pct,
+        c.property_count, c.property_cleared, c.property_cleared_pct,
+        c.murder_count, c.murder_cleared, c.murder_cleared_pct,
+        c.forcible_rape_count, c.forcible_rape_cleared, c.forcible_rape_cleared_pct,
+        c.robbery_count, c.robbery_cleared, c.robbery_cleared_pct,
+        c.agg_assault_count, c.agg_assault_cleared, c.agg_assault_cleared_pct,
+        c.burglary_count, c.burglary_cleared, c.burglary_cleared_pct,
+        c.mvt_count, c.mvt_cleared, c.mvt_cleared_pct,
+        c.larceny_theft_count, c.larceny_theft_cleared, c.larceny_theft_cleared_pct,
+        c.arson_count, c.arson_cleared, c.arson_cleared_pct
+        from clearance_rates as c join agencies as a on a.ori7 = c.ori7
+        order by c.ori7, c.year
+    """)
 
+    data = []
+    for row in result:
+        data.append(dict(zip(row.keys(), row)))
+
+    for ori7, yearly_data in groupby(data, lambda x: x['ori7']):
         output = {
-            'lea_code': lea_code,
-            'crimes': {}
+            'ori7': ori7,
+            'crimes': OrderedDict(),
         }
-        for row in lea_data:
+        for row in yearly_data:
+            if not output.get('agency'):
+                output['agency'] = row['agency']
+                output['state'] = row['state']
+                output['agency_type'] = row['agentype']
+
             year = row['year']
-
-            #if not output.get('lea_name'):
-            output['lea_name'] = lea_info['AGENCY']
-
-            if not output.get('population'):
-                output['population'] = row['population']
-
             for field in CRIME_TYPES:
                 if not output['crimes'].get(field):
                     output['crimes'][field] = {}
@@ -199,17 +213,9 @@ def write_json(data, agencies):
                 for measure in ['count', 'cleared', 'cleared_pct']:
                     output['crimes'][field][year][measure] = row['%s_%s' % (field, measure)]
 
-        with open('output/json/%s.json' % lea_code, 'w') as outfile:
-            logger.debug('Writing output/json/%s.json' % lea_code)
+        with open('output/json/%s.json' % ori7, 'w') as outfile:
+            logger.debug('Writing output/json/%s.json' % ori7)
             json.dump(output, outfile)
-
-        all_agencies.append((lea_code, lea_info['AGENCY']))
-
-    logger.info('Writing output/agency_names.csv')
-    with open('output/agency_names.csv', 'w') as outfile:
-        writer = csv.writer(outfile)
-        writer.writerow(['ori7', 'name'])
-        writer.writerows(all_agencies)
 
 
 def write_csv(data, filename):
@@ -231,7 +237,7 @@ def write_rates_to_db(data):
     table.insert_many(data)
 
 
-def write_agencies_db(agencies):
+def write_agencies_to_db(agencies):
     """
     Write agency data to db
     """
@@ -262,16 +268,11 @@ if __name__ == '__main__':
         data_file = 'data/%s' % file
         data = parse(data_file, year)
         all_data = all_data + data
-        write_csv(data, 'output/%s-clearance.csv' % year)
-        for state, state_data in groupby(data, lambda x: x['state']):
-            filename = 'output/%s-%s-clearance.csv' % (state, year)
-            write_csv(state_data, filename)
 
-    all_data = sorted(all_data, key=lambda x: x['lea_code'])
     agencies = get_agencies()
 
-    write_agencies_db(agencies)
+    write_agencies_to_db(agencies)
     write_rates_to_db(all_data)
 
     logger.info('Writing JSON data')
-    write_json(all_data, agencies)
+    write_clearance_json()
