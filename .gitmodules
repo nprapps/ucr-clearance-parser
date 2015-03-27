@@ -1,0 +1,3 @@
+[submodule "s3-parallel-put"]
+	path = s3-parallel-put
+	url = https://github.com/twpayne/s3-parallel-put.git
