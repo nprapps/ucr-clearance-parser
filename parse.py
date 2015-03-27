@@ -159,7 +159,23 @@ def parse_state(value):
     return value[0:2]
 
 
+def get_data():
+    """
+    Get and parse raw data
+    """
+    all_data = []
+
+    for year, file in IMPORT_FILES:
+        data_file = 'data/%s' % file
+        data = parse(data_file, year)
+        all_data = all_data + data
+
+    return all_data
+
 def get_agencies():
+    """
+    Get agency data
+    """
     agencies = {}
     with open('data/agency-crosswalk.csv') as f:
         reader = csv.DictReader(f)
@@ -168,12 +184,27 @@ def get_agencies():
 
     return agencies
 
+
+def write_agency_lookup():
+    """
+    Write agency lookup
+    """
+    result = db.query("""
+        select
+        a.ori7, a.agency, a.agentype, a.state
+        from agencies as a join clearance_rates as c on a.ori7 = c.ori7
+        group by a.ori7, a.agency, a.agentype, a.state
+        order by a.ori7
+    """)
+    dataset.freeze(result, format='csv', filename='output/agency_names.csv')
+
 def write_clearance_json():
     """
     Write json data
     """
 
-    result = db.query("""select
+    result = db.query("""
+        select
         a.ori7, a.agency, a.state, a.agentype,
         c.year,
         c.violent_count, c.violent_cleared, c.violent_cleared_pct,
@@ -218,16 +249,6 @@ def write_clearance_json():
             json.dump(output, outfile)
 
 
-def write_csv(data, filename):
-    """
-    Write a CSV from a list of dicts
-    """
-    with open(filename, 'w') as outfile:
-        writer = csv.DictWriter(outfile, fieldnames=FIELDNAMES)
-        writer.writeheader()
-        for row in data:
-            writer.writerow(row)
-
 def write_rates_to_db(data):
     """
     Write clearance rate data to db
@@ -261,18 +282,18 @@ def write_agencies_to_db(agencies):
 
 
 if __name__ == '__main__':
-    all_data = []
-
-    logger.info('Parsing data files')
-    for year, file in IMPORT_FILES:
-        data_file = 'data/%s' % file
-        data = parse(data_file, year)
-        all_data = all_data + data
-
+    logger.info('Parsing agency data')
     agencies = get_agencies()
-
+    logger.info('Writing agency data to db')
     write_agencies_to_db(agencies)
-    write_rates_to_db(all_data)
 
-    logger.info('Writing JSON data')
+    logger.info('Parsing clearance data')
+    data = get_data()
+    logger.info('Writing clearance data to db')
+    write_rates_to_db(data)
+
+    logger.info('Writing agency lookup')
+    write_agency_lookup()
+
+    logger.info('Writing individual JSON files')
     write_clearance_json()
