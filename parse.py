@@ -19,7 +19,7 @@ CRIME_TYPES = [
     'violent',
     'property',
     'murder',
-    'forcible_rape',
+    #'forcible_rape',
     'robbery',
     'agg_assault',
     'burglary',
@@ -32,6 +32,50 @@ IMPORT_FILES = [
     ('2011', '2011-clearance-rates.txt'),
     ('2012', '2012-clearance-rates.txt'),
     ('2013', '2013-clearance-rates.txt'),
+]
+
+POPULATION_BUCKETS = [
+    {
+        'name': '1,000,000 and above',
+        'low': 1000000,
+        'high': None,
+    },
+    {
+        'name': '500,000 to 999,999',
+        'low': 500000,
+        'high': 999999,
+    },
+    {
+        'name': '250,000 to 499,999',
+        'low': 250000,
+        'high': 499999,
+    },
+    {
+        'name': '100,000 to 249,999',
+        'low': 100000,
+        'high': 249999,
+    },
+    {
+        'name': '50,000 to 99,999',
+        'low': 50000,
+        'high': 99999,
+    },
+    {
+        'name': '25,000 to 49,999',
+        'low': 25000,
+        'high': 49999,
+    },
+
+    {
+        'name': '10,000 to 24,999',
+        'low': 10000,
+        'high': 24999,
+    },
+    {
+        'name': 'Under 10,000',
+        'low': 1,  # Population should never be 0
+        'high': 9999,
+    },
 ]
 
 locale.setlocale(locale.LC_ALL, 'en_US')
@@ -206,7 +250,7 @@ def write_clearance_json():
     result = db.query("""
         select
         a.ori7, a.agency, a.state, a.agentype,
-        c.year,
+        c.year, c.population,
         c.violent_count, c.violent_cleared, c.violent_cleared_pct,
         c.property_count, c.property_cleared, c.property_cleared_pct,
         c.murder_count, c.murder_cleared, c.murder_cleared_pct,
@@ -221,6 +265,8 @@ def write_clearance_json():
         order by c.ori7, c.year
     """)
 
+    medians = analyze_medians()
+
     data = []
     for row in result:
         data.append(row)
@@ -231,22 +277,120 @@ def write_clearance_json():
             'crimes': OrderedDict(),
         }
         for row in yearly_data:
+            has_median = False
+            if row['agentype'] == 'Municipal police':
+                has_median = True
+                bucket = get_population_bucket(row['population'])
+                if bucket:
+                    output['medians'] = OrderedDict()
+
             if not output.get('agency'):
                 output['agency'] = row['agency']
                 output['state'] = row['state']
                 output['agency_type'] = row['agentype']
 
             year = row['year']
+
+            if year == '2013' and has_median and bucket:
+                output['population_bucket'] = bucket
+                output['population'] = row['population']
+
             for field in CRIME_TYPES:
                 if not output['crimes'].get(field):
                     output['crimes'][field] = {}
+
+                if has_median and bucket:
+                    if not output['medians'].get(field):
+                        output['medians'][field] = {}
+                    output['medians'][field][year] = {}
+
                 output['crimes'][field][year] = {}
                 for measure in ['count', 'cleared', 'cleared_pct']:
                     output['crimes'][field][year][measure] = row['%s_%s' % (field, measure)]
+                    if has_median and bucket:
+                        median_measure = 'median_%s' % (measure)
+                        median_key = 'median_%s_%s' % (field, measure)
+                        median_value = medians[year][bucket][median_key]
+                        output['medians'][field][year][median_measure] = median_value
 
         with open('output/%s.json' % ori7, 'w') as outfile:
             logger.debug('Writing output/%s.json' % ori7)
             json.dump(output, outfile)
+
+
+def get_population_bucket(population):
+    """
+    Get population bucket
+    """
+    for bucket in POPULATION_BUCKETS:
+        if bucket['high']:
+            if population >= bucket['low'] and population <= bucket['high']:
+                return bucket['name']
+        else:
+            if population >= bucket['low']:
+                return bucket['name']
+
+    return None
+
+
+def analyze_medians():
+    """
+    Analyze medians
+    """
+    # Output is per-year, per-bucket, per-crime-type
+    output = {}
+
+    # Loop over years
+    for year, filename in IMPORT_FILES:
+        output[year] = {}
+        for bucket in POPULATION_BUCKETS:
+
+            where = 'population >= %d' % bucket['low']
+            if bucket['high']:
+                where = '%s and population <= %d' % (where, bucket['high'])
+
+            result = db.query("""
+                select
+                median(violent_count) as median_violent_count,
+                median(violent_cleared) as median_violent_cleared,
+                median(violent_cleared_pct) as median_violent_cleared_pct,
+                median(property_count) as median_property_count,
+                median(property_cleared) as median_property_cleared,
+                median(property_cleared_pct) as median_property_cleared_pct,
+                median(murder_count) as median_murder_count,
+                median(murder_cleared) as median_murder_cleared,
+                median(murder_cleared_pct) as median_murder_cleared_pct,
+                median(robbery_count) as median_robbery_count,
+                median(robbery_cleared) as median_robbery_cleared,
+                median(robbery_cleared_pct) as median_robbery_cleared_pct,
+                median(agg_assault_count) as median_agg_assault_count,
+                median(agg_assault_cleared) as median_agg_assault_cleared,
+                median(agg_assault_cleared_pct) as median_agg_assault_cleared_pct,
+                median(burglary_count) as median_burglary_count,
+                median(burglary_cleared) as median_burglary_cleared,
+                median(burglary_cleared_pct) as median_burglary_cleared_pct,
+                median(mvt_count) as median_mvt_count,
+                median(mvt_cleared) as median_mvt_cleared,
+                median(mvt_cleared_pct) as median_mvt_cleared_pct,
+                median(larceny_theft_count) as median_larceny_theft_count,
+                median(larceny_theft_cleared) as median_larceny_theft_cleared,
+                median(larceny_theft_cleared_pct) as median_larceny_theft_cleared_pct,
+                median(arson_count) as median_arson_count,
+                median(arson_cleared) as median_arson_cleared,
+                median(arson_cleared_pct) as median_arson_cleared_pct
+                from clearance_rates as c join agencies as a on a.ori7 = c.ori7
+                where mos > 6 and year='%s'
+                      and a.agentype='Municipal police'
+                      and %s
+            """ % (year, where))
+
+            data = []
+            for row in result:
+                data.append(row)
+
+            output[year][bucket['name']] = data[0]
+
+    return output
 
 
 def write_rates_to_db(data):
