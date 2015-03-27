@@ -198,11 +198,11 @@ def write_agency_lookup():
     """)
     dataset.freeze(result, format='csv', filename='output/agency_names.csv')
 
+
 def write_clearance_json():
     """
     Write json data
     """
-
     result = db.query("""
         select
         a.ori7, a.agency, a.state, a.agentype,
@@ -223,7 +223,7 @@ def write_clearance_json():
 
     data = []
     for row in result:
-        data.append(dict(zip(row.keys(), row)))
+        data.append(row)
 
     for ori7, yearly_data in groupby(data, lambda x: x['ori7']):
         output = {
@@ -244,8 +244,8 @@ def write_clearance_json():
                 for measure in ['count', 'cleared', 'cleared_pct']:
                     output['crimes'][field][year][measure] = row['%s_%s' % (field, measure)]
 
-        with open('output/json/%s.json' % ori7, 'w') as outfile:
-            logger.debug('Writing output/json/%s.json' % ori7)
+        with open('output/%s.json' % ori7, 'w') as outfile:
+            logger.debug('Writing output/%s.json' % ori7)
             json.dump(output, outfile)
 
 
