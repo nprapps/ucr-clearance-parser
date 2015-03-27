@@ -250,7 +250,7 @@ def write_clearance_json():
     result = db.query("""
         select
         a.ori7, a.agency, a.state, a.agentype,
-        c.year, c.population,
+        c.year, c.population, c.mos,
         c.violent_count, c.violent_cleared, c.violent_cleared_pct,
         c.property_count, c.property_cleared, c.property_cleared_pct,
         c.murder_count, c.murder_cleared, c.murder_cleared_pct,
@@ -277,11 +277,13 @@ def write_clearance_json():
             'crimes': OrderedDict(),
         }
         for row in yearly_data:
+            year = row['year']
+
             has_median = False
             if row['agentype'] == 'Municipal police':
                 has_median = True
                 bucket = get_population_bucket(row['population'])
-                if bucket:
+                if bucket and not output.get('medians'):
                     output['medians'] = OrderedDict()
 
             if not output.get('agency'):
@@ -289,7 +291,6 @@ def write_clearance_json():
                 output['state'] = row['state']
                 output['agency_type'] = row['agentype']
 
-            year = row['year']
 
             if year == '2013' and has_median and bucket:
                 output['population_bucket'] = bucket
@@ -305,13 +306,14 @@ def write_clearance_json():
                     output['medians'][field][year] = {}
 
                 output['crimes'][field][year] = {}
+                output['crimes'][field][year]['mos'] = row['mos']
+
                 for measure in ['count', 'cleared', 'cleared_pct']:
                     output['crimes'][field][year][measure] = row['%s_%s' % (field, measure)]
-                    if has_median and bucket:
-                        median_measure = 'median_%s' % (measure)
+                    if output.get('medians') and bucket:
                         median_key = 'median_%s_%s' % (field, measure)
                         median_value = medians[year][bucket][median_key]
-                        output['medians'][field][year][median_measure] = median_value
+                        output['medians'][field][year][measure] = median_value
 
         with open('output/%s.json' % ori7, 'w') as outfile:
             logger.debug('Writing output/%s.json' % ori7)
@@ -379,7 +381,7 @@ def analyze_medians():
                 median(arson_cleared) as median_arson_cleared,
                 median(arson_cleared_pct) as median_arson_cleared_pct
                 from clearance_rates as c join agencies as a on a.ori7 = c.ori7
-                where mos > 6 and year='%s'
+                where mos=12 and year='%s'
                       and a.agentype='Municipal police'
                       and %s
             """ % (year, where))
