@@ -309,11 +309,19 @@ def write_clearance_json():
                 output['crimes'][field][year]['mos'] = row['mos']
 
                 for measure in ['count', 'cleared', 'cleared_pct']:
-                    output['crimes'][field][year][measure] = row['%s_%s' % (field, measure)]
+                    if row['mos'] < 12:
+                        output['crimes'][field][year][measure] = None
+                    else:
+                        output['crimes'][field][year][measure] = row['%s_%s' % (field, measure)]
+
                     if output.get('medians') and bucket:
                         median_key = 'median_%s_%s' % (field, measure)
                         median_value = medians[year][bucket][median_key]
-                        output['medians'][field][year][measure] = median_value
+
+                        if row['mos'] < 12:
+                            output['medians'][field][year][measure] = None
+                        else:
+                            output['medians'][field][year][measure] = median_value
 
         with open('output/%s.json' % ori7, 'w') as outfile:
             logger.debug('Writing output/%s.json' % ori7)
