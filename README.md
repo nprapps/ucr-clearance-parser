@@ -1,4 +1,27 @@
-# UCR Clearance Parser Notes
+# UCR Clearance Parser 
+
+## Install
+
+```
+pip install -r requirements.txt
+```
+
+## Process
+
+```
+./process.sh
+```
+
+## Deploy
+
+Requires AWS environment variables to be set.
+
+```
+./deploy.sh
+```
+
+
+## Notes
 
 Cross walk file converted with R
 
