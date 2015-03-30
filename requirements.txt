@@ -4,6 +4,7 @@ PyYAML==3.11
 SQLAlchemy==0.9.9
 Unidecode==0.04.17
 alembic==0.7.5.post2
+boto==2.36.0
 dataset==0.5.6
 gnureadline==6.3.3
 ipython==3.0.0
