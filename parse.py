@@ -312,7 +312,12 @@ def write_clearance_json():
                     if row['mos'] < 12:
                         output['crimes'][field][year][measure] = None
                     else:
-                        output['crimes'][field][year][measure] = row['%s_%s' % (field, measure)]
+                        row_value = row['%s_%s' % (field, measure)]
+
+                        if measure == 'cleared' and row_value == 0 and row['%s_%s' % (field, 'count')] > 0:
+                            output['data_warning'] = True
+
+                        output['crimes'][field][year][measure] = row_value
 
                     if output.get('medians') and bucket:
                         median_key = 'median_%s_%s' % (field, measure)
