@@ -32,7 +32,7 @@ Requires AWS environment variables to be set.
 * Crosswalk file converted from Stata to CSV using R from [Law Enforcement Agency Identifiers Crosswalk, 2005](http://www.icpsr.umich.edu/icpsrweb/NACJD/studies/4634).
 * The JSON writer -- `write_clearance_json()` in `parse.py` -- is quite ugly. If you need to extend the JSON output, consider refactoring this function. Pull requests encouraged!
 * The `parse()` function `parse.py` is a handy, fast parser for raw FBI UCR clearance data files, known as "master" files.
-* `data/UCR52406-2013.txt` is the FBI master agency list as exported from the UCR system. It was not used in our final product, but might be useful.
+* [`data/UCR52406-2013.txt`](data/UCR52406-2013.txt) is the FBI master agency list as exported from the UCR system. It was not used in our final product, but might be useful.
 
 ## License
 
