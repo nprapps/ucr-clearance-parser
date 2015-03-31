@@ -33,6 +33,7 @@ Requires AWS environment variables to be set.
 * The JSON writer -- `write_clearance_json()` in `parse.py` -- is quite ugly. If you need to extend the JSON output, consider refactoring this function. Pull requests encouraged!
 * The `parse()` function `parse.py` is a handy, fast parser for raw FBI UCR clearance data files, known as "master" files.
 * [`data/UCR52406-2013.txt`](data/UCR52406-2013.txt) is the FBI master agency list as exported from the UCR system. It was not used in our final product, but might be useful.
+* The scripts and processed output contains median clearance rates based on population bucket. **These medians are technically correct but not necessarily reliable**. This is because there are many zeroes in the clearance data that bias the medians. The zeroes are ambiguous: they could be because the agency did not report, because their data was rejected by the FBI, or because they did no clear any cases. Use with care.
 
 ## License
 
