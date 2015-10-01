@@ -100,7 +100,7 @@ def parse(file_path, year):
                 line = skip_section_break(f)
 
             # We're done!
-            if END_BREAK in line:
+            if END_BREAK in line or line == '':
                 return output
 
             line_parts = split_line(line)
