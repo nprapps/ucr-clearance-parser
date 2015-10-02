@@ -32,6 +32,7 @@ IMPORT_FILES = [
     ('2011', '2011-clearance-rates.txt'),
     ('2012', '2012-clearance-rates.txt'),
     ('2013', '2013-clearance-rates.txt'),
+    ('2014', '2014-clearance-rates.txt'),
 ]
 
 POPULATION_BUCKETS = [
